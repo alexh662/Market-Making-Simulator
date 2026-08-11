@@ -60,7 +60,9 @@ def test_pnl_identity_reconciles_on_100_paths_and_has_enough_fills():
 
 
 def test_four_fill_sign_cases():
-    q0, cash0 = 0.0, 0.0
+    # non-zero starting inventory/cash so the assertions exercise addition
+    # against the prior state, not just the sign of a zero-based update
+    q0, cash0 = 5.0, 200.0
 
     q, cash = _apply_fill(q0, cash0, "bid", price=99.5, size=3)
     assert q == q0 + 3
