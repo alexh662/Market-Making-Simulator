@@ -1,0 +1,23 @@
+price:
+  S0: 100.0
+  sigma: 2.0          # per unit time; ~2% daily vol at S0=100
+  dt: 0.005           # 200 steps per unit time
+  T: 1.0              # one session
+
+flow:
+  A: 140.0            # baseline arrival intensity
+  kappa: 1.5
+  order_size: 1
+  phi_informed: 0.15
+  informed_horizon: 20
+
+strategy:
+  gamma: 0.1
+  q_max: 25           # for limit variants
+
+simulation:
+  n_paths: 2000
+  base_seed: 20260811
+  tick_size: 0.01
+  adverse_selection_horizon: 20
+  liquidation_cost_multiplier: 0.5
