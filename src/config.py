@@ -56,10 +56,13 @@ class FlowConfig:
 class StrategyConfig:
     gamma: float
     q_max: int
+    fixed_spread: float
 
     def __post_init__(self) -> None:
         if self.gamma <= 0:
             raise ValueError(f"strategy.gamma must be > 0, got {self.gamma}")
+        if self.fixed_spread <= 0:
+            raise ValueError(f"strategy.fixed_spread must be > 0, got {self.fixed_spread}")
 
 
 @dataclass(frozen=True)

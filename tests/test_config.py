@@ -20,7 +20,12 @@ def test_kappa_le_zero_raises():
 
 def test_gamma_le_zero_raises():
     with pytest.raises(ValueError):
-        StrategyConfig(gamma=0.0, q_max=25)
+        StrategyConfig(gamma=0.0, q_max=25, fixed_spread=1.0)
+
+
+def test_fixed_spread_le_zero_raises():
+    with pytest.raises(ValueError):
+        StrategyConfig(gamma=0.1, q_max=25, fixed_spread=0.0)
 
 
 def test_tick_size_le_zero_raises():
