@@ -1,0 +1,9 @@
+cat > .gitignore << 'EOF'
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+.env
+EOF
