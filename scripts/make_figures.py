@@ -9,14 +9,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 
+from src.config import load_config
 from src.plotting import plot_quote_skew_example
 from src.simulator import run_episode
 from src.strategies import AvellanedaStoikov
 
-# gamma=0.01 is the low end of the section 6.3 sweep, chosen (over the
-# frozen default gamma=0.1) so inventory swings are large enough to make
-# the reservation-price skew visually striking; see DECISIONS.md.
-QUOTE_SKEW_GAMMA = 0.01
+QUOTE_SKEW_GAMMA = load_config(Path(__file__).resolve().parent.parent / "config" / "base.yaml").strategy.gamma
 QUOTE_SKEW_SEED = 53
 
 
