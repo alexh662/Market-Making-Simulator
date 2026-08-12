@@ -13,6 +13,8 @@ import math
 from dataclasses import dataclass
 from typing import NamedTuple, Protocol
 
+import numpy as np
+
 
 class FillRecord(NamedTuple):
     t: float
@@ -75,3 +77,67 @@ class AvellanedaStoikov:
         spread_total = inventory_term + microstructure_term
 
         return r - spread_total / 2.0, r + spread_total / 2.0
+
+
+# Offset used by the two "with limit" strategies to withdraw a quote once
+# q_max is exceeded. Large enough that A * exp(-kappa * offset) underflows to
+# exactly 0.0 in float64 for any kappa configured in this project, so the
+# withdrawn side's fill probability is exactly zero, not merely small.
+_NO_QUOTE_OFFSET = 1.0e4
+
+
+@dataclass(frozen=True)
+class FixedSpreadWithInventoryLimit:
+    """As SymmetricFixedSpread, but stops quoting the side that would worsen
+    inventory once |q| exceeds q_max. A crude but realistic control,
+    contrasted against AS's continuous skew (section 6.1)."""
+
+    spread: float
+    q_max: float
+
+    def quote(self, obs: MarketObservation) -> tuple[float, float]:
+        half = self.spread / 2.0
+        bid = obs.S - half
+        ask = obs.S + half
+        if obs.q > self.q_max:
+            bid = obs.S - _NO_QUOTE_OFFSET  # long past the cap: stop buying
+        if obs.q < -self.q_max:
+            ask = obs.S + _NO_QUOTE_OFFSET  # short past the cap: stop selling
+        return bid, ask
+
+
+@dataclass(frozen=True)
+class AvellanedaStoikovWithLimit:
+    """AvellanedaStoikov plus a hard inventory cap: the side that would
+    worsen inventory stops quoting once |q| exceeds q_max, layered on top of
+    the continuous skew rather than replacing it."""
+
+    gamma: float
+    sigma: float
+    kappa: float
+    T: float
+    q_max: float
+
+    def quote(self, obs: MarketObservation) -> tuple[float, float]:
+        inner = AvellanedaStoikov(gamma=self.gamma, sigma=self.sigma, kappa=self.kappa, T=self.T)
+        bid, ask = inner.quote(obs)
+        if obs.q > self.q_max:
+            bid = obs.S - _NO_QUOTE_OFFSET
+        if obs.q < -self.q_max:
+            ask = obs.S + _NO_QUOTE_OFFSET
+        return bid, ask
+
+
+@dataclass(frozen=True)
+class RandomQuoter:
+    """Uniform random total spread in a plausible range, redrawn
+    independently every step. A floor: if a strategy cannot beat this,
+    something is broken (section 6.1). See DECISIONS.md for the range."""
+
+    rng: np.random.Generator
+    low: float = 0.7
+    high: float = 2.0
+
+    def quote(self, obs: MarketObservation) -> tuple[float, float]:
+        half = self.rng.uniform(self.low, self.high) / 2.0
+        return obs.S - half, obs.S + half
