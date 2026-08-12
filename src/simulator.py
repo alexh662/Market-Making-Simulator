@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from src.price_process import generate_price_path
-from src.strategies import FillRecord, MarketObservation, Strategy
+from src.strategies import NO_QUOTE_OFFSET, FillRecord, MarketObservation, Strategy
 
 _FILL_COLUMNS = ["t", "side", "price", "size", "mid_at_fill", "was_informed", "mid_after_horizon"]
 
@@ -170,9 +170,17 @@ def run_episode(
                 mid_after_horizon=mid_after_horizon,
             ))
 
+        # a strategy withdraws a side by quoting it NO_QUOTE_OFFSET away from
+        # the mid (see src/strategies.py); that is not a real two-sided
+        # quote, so it must not count toward the average spread used for the
+        # section 4.2 liquidation cost. Recorded as NaN, consistent with how
+        # the terminal row already uses NaN for "no quote this row" --
+        # pandas .mean() skips NaN, so downstream averages are unaffected.
+        withdrawn = delta_b > NO_QUOTE_OFFSET / 2 or delta_a > NO_QUOTE_OFFSET / 2
         state_records.append(StateRecord(
             t=t, mid=S_i, inventory=q, bid=bid, ask=ask,
-            reservation_price=reservation_price, spread_total=ask - bid,
+            reservation_price=reservation_price,
+            spread_total=float("nan") if withdrawn else ask - bid,
             cash=cash, mtm_pnl=cash + q * S_i,
         ))
 

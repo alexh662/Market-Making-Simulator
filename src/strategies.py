@@ -83,7 +83,7 @@ class AvellanedaStoikov:
 # q_max is exceeded. Large enough that A * exp(-kappa * offset) underflows to
 # exactly 0.0 in float64 for any kappa configured in this project, so the
 # withdrawn side's fill probability is exactly zero, not merely small.
-_NO_QUOTE_OFFSET = 1.0e4
+NO_QUOTE_OFFSET = 1.0e4
 
 
 @dataclass(frozen=True)
@@ -100,9 +100,9 @@ class FixedSpreadWithInventoryLimit:
         bid = obs.S - half
         ask = obs.S + half
         if obs.q > self.q_max:
-            bid = obs.S - _NO_QUOTE_OFFSET  # long past the cap: stop buying
+            bid = obs.S - NO_QUOTE_OFFSET  # long past the cap: stop buying
         if obs.q < -self.q_max:
-            ask = obs.S + _NO_QUOTE_OFFSET  # short past the cap: stop selling
+            ask = obs.S + NO_QUOTE_OFFSET  # short past the cap: stop selling
         return bid, ask
 
 
@@ -122,9 +122,9 @@ class AvellanedaStoikovWithLimit:
         inner = AvellanedaStoikov(gamma=self.gamma, sigma=self.sigma, kappa=self.kappa, T=self.T)
         bid, ask = inner.quote(obs)
         if obs.q > self.q_max:
-            bid = obs.S - _NO_QUOTE_OFFSET
+            bid = obs.S - NO_QUOTE_OFFSET
         if obs.q < -self.q_max:
-            ask = obs.S + _NO_QUOTE_OFFSET
+            ask = obs.S + NO_QUOTE_OFFSET
         return bid, ask
 
 
