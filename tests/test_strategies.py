@@ -1,18 +1,22 @@
 import dataclasses
 import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from src.config import load_config
 from src.simulator import _round_quotes, pnl_identity_components, run_episode
 from src.strategies import AvellanedaStoikov, FillRecord, MarketObservation
 
-DEFAULT_GAMMA = 0.1
+_BASE_CONFIG = load_config(Path(__file__).resolve().parent.parent / "config" / "base.yaml")
+
+DEFAULT_GAMMA = _BASE_CONFIG.strategy.gamma  # config/base.yaml strategy.gamma (CLAUDE.md section 12)
 DEFAULT_SIGMA = 2.0
 DEFAULT_KAPPA = 1.5
 DEFAULT_T = 1.0
-GAMMA_SWEEP = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0]  # section 6.3
+GAMMA_SWEEP = [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1]  # section 6.3
 
 DEFAULT_SIM_PARAMS = dict(
     S0=100.0,
