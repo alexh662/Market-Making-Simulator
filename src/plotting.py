@@ -66,6 +66,102 @@ def plot_quote_skew_example(
     plt.close(fig)
 
 
+def plot_efficient_frontier(table: pd.DataFrame, save_path: str) -> None:
+    """Section 7, item 3: mean PnL vs PnL standard deviation across the
+    gamma sweep (section 6.3), each point annotated with gamma, plus Sharpe
+    vs gamma to identify the peak. The project's signature figure."""
+    fig, (ax_frontier, ax_sharpe) = plt.subplots(1, 2, figsize=(13, 5.5))
+
+    ax_frontier.errorbar(
+        table["pnl_mean"], table["pnl_std"],
+        xerr=table["pnl_se"], fmt="o", color="tab:blue", capsize=3, markersize=6,
+    )
+    for _, row in table.iterrows():
+        ax_frontier.annotate(
+            f"γ={row['gamma']:g}", (row["pnl_mean"], row["pnl_std"]),
+            textcoords="offset points", xytext=(6, 6), fontsize=8,
+        )
+    ax_frontier.set_xlabel("mean terminal PnL ($)")
+    ax_frontier.set_ylabel("terminal PnL standard deviation ($)")
+    ax_frontier.set_title("Efficient frontier: risk vs return across gamma")
+
+    ax_sharpe.errorbar(
+        table["gamma"], table["sharpe"],
+        yerr=table["sharpe_bootstrap_se"], fmt="o-", color="tab:blue", capsize=3, markersize=6,
+    )
+    ax_sharpe.set_xscale("log")
+    ax_sharpe.set_xlabel("gamma (log scale)")
+    ax_sharpe.set_ylabel("Sharpe (mean / std of terminal PnL)")
+    ax_sharpe.set_title("Sharpe vs gamma")
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_informed_flow_crossover(table: pd.DataFrame, save_path: str) -> None:
+    """Section 7, item 5: spread capture and adverse selection (plotted as
+    magnitude, so a crossover is visible as an intersection) against
+    phi_informed (section 6.6)."""
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+
+    ax.plot(
+        table["phi_informed"], table["spread_capture_mean"],
+        "o-", label="spread capture", color="tab:green",
+    )
+    ax.plot(
+        table["phi_informed"], -table["adverse_selection_mean"],
+        "o-", label="adverse selection (magnitude)", color="tab:red",
+    )
+    ax.set_xlabel("phi_informed")
+    ax.set_ylabel("$ per episode")
+    ax.set_title("Informed flow: spread capture vs adverse selection")
+    ax.legend(loc="best", frameon=False)
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_kappa_misspecification(table: pd.DataFrame, save_path: str) -> None:
+    """Section 7, item 7: Sharpe and mean PnL against the ratio of assumed
+    to true kappa (section 6.4b), with the correctly specified point
+    (ratio=1.0) marked."""
+    fig, ax_sharpe = plt.subplots(figsize=(9, 5.5))
+    ax_pnl = ax_sharpe.twinx()
+
+    ax_sharpe.plot(
+        table["assumed_over_true_kappa"], table["sharpe"],
+        "o-", color="tab:blue", label="Sharpe",
+    )
+    ax_pnl.plot(
+        table["assumed_over_true_kappa"], table["pnl_mean"],
+        "s--", color="tab:orange", label="mean PnL",
+    )
+
+    correct = table[table["assumed_over_true_kappa"] == 1.0]
+    if not correct.empty:
+        ax_sharpe.axvline(1.0, color="grey", linewidth=0.8, linestyle=":")
+        ax_sharpe.scatter(
+            correct["assumed_over_true_kappa"], correct["sharpe"],
+            color="tab:blue", s=140, zorder=5, edgecolors="black",
+            label="correctly specified",
+        )
+
+    ax_sharpe.set_xlabel("assumed kappa / true kappa")
+    ax_sharpe.set_ylabel("Sharpe", color="tab:blue")
+    ax_pnl.set_ylabel("mean terminal PnL ($)", color="tab:orange")
+    ax_sharpe.set_title("Kappa misspecification: Sharpe and mean PnL vs assumed/true ratio")
+
+    lines1, labels1 = ax_sharpe.get_legend_handles_labels()
+    lines2, labels2 = ax_pnl.get_legend_handles_labels()
+    ax_sharpe.legend(lines1 + lines2, labels1 + labels2, loc="best", frameon=False)
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_inventory_paths(
     fixed_states: list[pd.DataFrame],
     as_states: list[pd.DataFrame],
