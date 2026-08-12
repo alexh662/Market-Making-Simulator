@@ -8,11 +8,19 @@ import pytest
 
 from src.config import load_config
 from src.simulator import _round_quotes, pnl_identity_components, run_episode
-from src.strategies import AvellanedaStoikov, FillRecord, MarketObservation
+from src.strategies import (
+    AvellanedaStoikov,
+    AvellanedaStoikovWithLimit,
+    FillRecord,
+    FixedSpreadWithInventoryLimit,
+    MarketObservation,
+)
 
 _BASE_CONFIG = load_config(Path(__file__).resolve().parent.parent / "config" / "base.yaml")
 
 DEFAULT_GAMMA = _BASE_CONFIG.strategy.gamma  # config/base.yaml strategy.gamma (CLAUDE.md section 12)
+DEFAULT_FIXED_SPREAD = _BASE_CONFIG.strategy.fixed_spread  # config/base.yaml strategy.fixed_spread
+DEFAULT_Q_MAX = _BASE_CONFIG.strategy.q_max  # config/base.yaml strategy.q_max
 DEFAULT_SIGMA = 2.0
 DEFAULT_KAPPA = 1.5
 DEFAULT_T = 1.0
@@ -175,6 +183,48 @@ def test_mid_crossing_is_counted_not_silently_allowed():
 
     assert result.mid_crossing_count == expected_crossings
     assert expected_crossings > 0
+
+
+# --- limit strategy quoted spread sanity ------------------------------------
+
+
+def _pooled_quoted_spreads(strategy, n_paths: int = N_PATHS) -> np.ndarray:
+    """StateRecord.spread_total, pooled across paths, with withdrawn-quote
+    (NaN) steps excluded -- exactly what a mean over the raw column would
+    have silently included before the NO_QUOTE_OFFSET fix."""
+    spreads = []
+    for p in range(1, n_paths + 1):
+        rng = np.random.default_rng((BASE_SEED, p))
+        result = run_episode(strategy, rng=rng, **DEFAULT_SIM_PARAMS)
+        s = result.states["spread_total"].to_numpy()[:-1]
+        spreads.append(s[~np.isnan(s)])
+    return np.concatenate(spreads)
+
+
+def test_limit_strategy_mean_quoted_spread_matches_unlimited_counterpart():
+    # This is the check that would have caught the NO_QUOTE_OFFSET
+    # contamination at the source (see DECISIONS.md "withdrawn-quote steps
+    # excluded from average spread and liquidation cost"): before that fix,
+    # withdrawn steps recorded spread_total near NO_QUOTE_OFFSET (1e4), which
+    # would have failed "no included spread exceeds 10" immediately and
+    # blown the mean far outside 10% of the configured/reference spread.
+    fixed_limit = FixedSpreadWithInventoryLimit(spread=DEFAULT_FIXED_SPREAD, q_max=DEFAULT_Q_MAX)
+    fixed_spreads = _pooled_quoted_spreads(fixed_limit)
+    assert fixed_spreads.max() < 10.0
+    assert fixed_spreads.mean() == pytest.approx(DEFAULT_FIXED_SPREAD, rel=0.10)
+
+    # reference: the same AvellanedaStoikov, without the limit, measured the
+    # same way -- its spread does not depend on inventory, so excluding the
+    # limit variant's withdrawn steps should not move its mean materially
+    as_unlimited = _make()
+    time_averaged_as_spread = _pooled_quoted_spreads(as_unlimited).mean()
+
+    as_limit = AvellanedaStoikovWithLimit(
+        gamma=DEFAULT_GAMMA, sigma=DEFAULT_SIGMA, kappa=DEFAULT_KAPPA, T=DEFAULT_T, q_max=DEFAULT_Q_MAX
+    )
+    as_limit_spreads = _pooled_quoted_spreads(as_limit)
+    assert as_limit_spreads.max() < 10.0
+    assert as_limit_spreads.mean() == pytest.approx(time_averaged_as_spread, rel=0.10)
 
 
 # --- no lookahead (section 2.7 / section 8) ---------------------------------
