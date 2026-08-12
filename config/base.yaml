@@ -13,8 +13,8 @@ flow:
 
 strategy:
   gamma: 0.01
-  q_max: 25           # for limit variants
-  fixed_spread: 1.0   # SymmetricFixedSpread baseline width about the mid
+  q_max: 10           # for limit variants
+  fixed_spread: 1.3590   # time averaged AS spread at M4, see DECISIONS.md
 
 simulation:
   n_paths: 2000
