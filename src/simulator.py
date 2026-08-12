@@ -41,6 +41,7 @@ class EpisodeResult:
     mark_to_market_pnl: float
     forced_liquidation_pnl: float
     rounding_collisions: int
+    mid_crossing_count: int
 
 
 def _round_quotes(raw_bid: float, raw_ask: float, tick_size: float) -> tuple[float, float, bool]:
@@ -110,6 +111,7 @@ def run_episode(
     fill_records: list[FillRecord] = []
     state_records: list[StateRecord] = []
     rounding_collisions = 0
+    mid_crossing_count = 0
 
     for i in range(n_steps):
         t = i * dt
@@ -117,6 +119,11 @@ def run_episode(
         obs = MarketObservation(t=t, S=S_i, q=q, fills_so_far=tuple(fill_records))
         raw_bid, raw_ask = strategy.quote(obs)
         reservation_price = (raw_bid + raw_ask) / 2.0
+        # a large inventory skew can push the raw quote entirely to one side
+        # of the mid; this is a real artefact of the model at extreme
+        # inventory, so it is counted rather than silently allowed
+        if raw_bid > S_i or raw_ask < S_i:
+            mid_crossing_count += 1
         bid, ask, collided = _round_quotes(raw_bid, raw_ask, tick_size)
         rounding_collisions += int(collided)
 
@@ -194,6 +201,7 @@ def run_episode(
         mark_to_market_pnl=mark_to_market_pnl,
         forced_liquidation_pnl=forced_liquidation_pnl,
         rounding_collisions=rounding_collisions,
+        mid_crossing_count=mid_crossing_count,
     )
 
 
