@@ -9,7 +9,6 @@ classification (section 2.7) and must stay invisible to quoting logic.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import NamedTuple, Protocol
 
@@ -73,7 +72,11 @@ class AvellanedaStoikov:
         inventory_term = self.gamma * self.sigma**2 * time_remaining
         # market microstructure term: governed by fill-intensity decay,
         # independent of inventory and time remaining
-        microstructure_term = (2.0 / self.gamma) * math.log(1.0 + self.gamma / self.kappa)
+        # log1p(x), not log(1+x): at small gamma (e.g. 0.0005 in the section
+        # 6.3 sweep), gamma/kappa is small enough that the naive 1+x loses
+        # precision in the addition before the log is even taken, and the
+        # error is then amplified by the 2/gamma factor. See DECISIONS.md.
+        microstructure_term = (2.0 / self.gamma) * np.log1p(self.gamma / self.kappa)
         spread_total = inventory_term + microstructure_term
 
         return r - spread_total / 2.0, r + spread_total / 2.0
