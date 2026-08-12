@@ -12,7 +12,7 @@ flow:
   informed_horizon: 20
 
 strategy:
-  gamma: 0.1
+  gamma: 0.01
   q_max: 25           # for limit variants
   fixed_spread: 1.0   # SymmetricFixedSpread baseline width about the mid
 
