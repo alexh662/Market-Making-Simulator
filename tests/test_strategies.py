@@ -150,10 +150,14 @@ def test_bid_below_ask_after_tick_rounding_across_inventory_range():
 
 
 def test_mid_crossing_is_counted_not_silently_allowed():
-    strategy = _make()
-    # path 9 is known (see DECISIONS.md) to build enough early inventory to
-    # push a raw quote fully to one side of the mid; not every path does
-    rng = np.random.default_rng((BASE_SEED, 9))
+    # gamma=0.5, not the frozen default: at the frozen default (gamma=0.01)
+    # a crossing requires roughly |q| >= 17 while T-t is still near 1, and a
+    # 20000-seed search found zero paths that ever reach it (see
+    # DECISIONS.md). This test exercises the counting mechanism itself, not
+    # frozen-default behaviour, so it deliberately uses a gamma known to
+    # produce crossings reliably; path 1 gives 13.
+    strategy = _make(gamma=0.5)
+    rng = np.random.default_rng((BASE_SEED, 1))
     result = run_episode(strategy, rng=rng, **DEFAULT_SIM_PARAMS)
 
     # recompute independently from the recorded states frame: the inventory
