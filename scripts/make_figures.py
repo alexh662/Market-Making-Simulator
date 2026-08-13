@@ -14,11 +14,15 @@ from src.plotting import plot_quote_skew_example
 from src.simulator import run_episode
 from src.strategies import AvellanedaStoikov
 
-QUOTE_SKEW_GAMMA = load_config(Path(__file__).resolve().parent.parent / "config" / "base.yaml").strategy.gamma
+REPO_ROOT = Path(__file__).resolve().parent.parent
+FIGURES_DIR = REPO_ROOT / "results" / "figures"
+
+QUOTE_SKEW_GAMMA = load_config(REPO_ROOT / "config" / "base.yaml").strategy.gamma
 QUOTE_SKEW_SEED = 53
 
 
 def make_quote_skew_example() -> None:
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     strategy = AvellanedaStoikov(gamma=QUOTE_SKEW_GAMMA, sigma=2.0, kappa=1.5, T=1.0)
     rng = np.random.default_rng(QUOTE_SKEW_SEED)
     result = run_episode(
@@ -39,7 +43,7 @@ def make_quote_skew_example() -> None:
     )
     plot_quote_skew_example(
         result.states,
-        "results/figures/quote_skew_example.png",
+        str(FIGURES_DIR / "quote_skew_example.png"),
         seed=QUOTE_SKEW_SEED,
         gamma=QUOTE_SKEW_GAMMA,
     )

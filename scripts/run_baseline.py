@@ -206,6 +206,7 @@ def run_headline_comparison(cfg: Config) -> None:
 
     table = pd.DataFrame(rows)
     TABLES_DIR.mkdir(parents=True, exist_ok=True)
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = TABLES_DIR / "headline_comparison.csv"
     with open(csv_path, "w") as f:
         # sharpe = mean(terminal PnL) / std(terminal PnL) across paths, not
@@ -242,10 +243,28 @@ def run_headline_comparison(cfg: Config) -> None:
         f"{reduction_pct:+.2f}%  (AS std {as_std:.4f} vs fixed std {fixed_std:.4f})"
     )
 
+    binding_fractions = {}
     for name in ("FixedSpreadWithInventoryLimit", "AvellanedaStoikovWithLimit"):
         frac = accumulators[name].binding_fraction
+        binding_fractions[name] = frac
         print(f"{name}: inventory limit (q_max={cfg.strategy.q_max}) binding on {frac:.4%} of steps")
     print()
+
+    # The paired comparison and the derived reduction are the project's
+    # headline result, so they are written to a table rather than existing
+    # only as stdout -- every published number must be readable from
+    # results/tables/ without re-running the sweep.
+    pd.DataFrame([{
+        "n_paths": N_PATHS_HEADLINE,
+        "paired_mean_pnl_diff_as_minus_fixed": diff.mean(),
+        "paired_diff_se": standard_error(diff),
+        "paired_diff_t_stat": diff.mean() / standard_error(diff),
+        "as_pnl_std": as_std,
+        "fixed_pnl_std": fixed_std,
+        "pnl_std_reduction_pct": reduction_pct,
+        "fixed_spread_limit_binding_fraction": binding_fractions["FixedSpreadWithInventoryLimit"],
+        "as_limit_binding_fraction": binding_fractions["AvellanedaStoikovWithLimit"],
+    }]).to_csv(TABLES_DIR / "as_vs_fixed_paired.csv", index=False)
 
     plot_inventory_paths(
         accumulators["SymmetricFixedSpread"].kept_states,
