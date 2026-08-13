@@ -1,0 +1,2 @@
+n_paths,paired_mean_pnl_diff_as_minus_fixed,paired_diff_se,paired_diff_t_stat,as_pnl_std,fixed_pnl_std,pnl_std_reduction_pct,fixed_spread_limit_binding_fraction,as_limit_binding_fraction
+2000,0.2051722239003524,0.15033547870847616,1.364762500927763,8.68731570866683,12.596677045800902,31.0348619951105,0.03005,0.00461
