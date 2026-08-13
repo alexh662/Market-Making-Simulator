@@ -1,4 +1,4 @@
-# Inventory-Aware Market Making Simulator
+# Market Making Simulator
 
 ## 1. Summary
 
