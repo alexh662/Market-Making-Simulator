@@ -87,10 +87,12 @@ def run_sweep_1(cfg: Config) -> int:
     diag_results = gamma_sweep(cfg, GAMMA_EXCLUDED)
     diag_table = gamma_sweep_table(diag_results)
     min_fill = min(min_fill, int(diag_table["min_fill_count"].min()))
-    diag_table[["gamma", "sharpe", "mean_fill_count"]].to_csv(
-        TABLES_DIR / "gamma_excluded_diagnostic.csv", index=False
-    )
-    print(diag_table[["gamma", "sharpe", "mean_fill_count"]].to_string(index=False))
+    # min_fill_count / below_fill_floor_count are the whole point of this
+    # table: they are the evidence that these points are degenerate rather
+    # than merely low-Sharpe, so they must be readable from the CSV itself.
+    diag_cols = ["gamma", "sharpe", "mean_fill_count", "min_fill_count", "below_fill_floor_count"]
+    diag_table[diag_cols].to_csv(TABLES_DIR / "gamma_excluded_diagnostic.csv", index=False)
+    print(diag_table[diag_cols].to_string(index=False))
     _report_fill_floor_violations(diag_table, "gamma", "below_fill_floor_count", "min_fill_count")
     print()
     return min_fill
