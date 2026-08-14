@@ -197,8 +197,10 @@ test asserting monotonicity is scoped to the frozen defaults for that reason.
    is the most interesting result here mechanically, because it says which of the policy's two
    levers is doing the work. Taking σ from 0.5x to 4x the default, AS widened its average
    spread by only 22.19%. Over that same range its PnL standard deviation went from 7.21 to
-   11.41 while the fixed baseline went from 7.86 to 46.20. The tell is in the inventory rather
-   than the PnL: AS's worst inventory fell from 27 to 10 as volatility rose, while the
+   11.41 while the fixed baseline went from 7.86 to 46.20. Note that AS's own variance rose
+   with volatility. What changed is the gap to the baseline: at 4x, AS sits 75.3% below the
+   baseline at the same volatility, a ratio of 4.05x. The tell is in the inventory rather than
+   the PnL, though: AS's worst inventory fell from 27 to 10 as volatility rose, while the
    baseline sat flat at 30 throughout, so the risk went up and the worst case got smaller. A
    22% wider spread cannot account for that. The reservation-price shift scales with σ², so as
    volatility rises the skew pulls inventory back toward zero much harder, and that is what
