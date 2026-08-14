@@ -81,7 +81,8 @@ PnL_total = Σ_fills (mid_at_fill - execution_price)·signed_size   (A) spread c
 This identity is checked to within 1e-9 on every path of every configuration, as a hard
 assert that runs before any number gets written. Term (B) splits further into adverse
 selection (signed size times the mid move over the attribution horizon) plus a residual, which
-is reported rather than hidden.
+is reported rather than hidden. At the frozen defaults that residual is +0.0162 against 55.79
+of spread capture, so the attribution horizon is not mis-set.
 
 What is not realistic is in section 6. The big one is that quotes are recentred on the mid
 every single step, with no latency and no queue.
@@ -111,8 +112,9 @@ toward zero, with mean |q| of 2.76 against 4.41.
 
 ![efficient frontier](results/figures/efficient_frontier.png)
 
-More risk aversion buys a large drop in PnL standard deviation for almost nothing in mean PnL,
-so Sharpe climbs all the way to 8.29 at γ = 0.1 and never turns inside the plotted range.
+More risk aversion takes PnL standard deviation from 12.22 down to 6.17 while mean PnL only
+slips from 52.53 to 51.17, so Sharpe climbs all the way to 8.29 at γ = 0.1 and never turns
+inside the plotted range.
 
 ![PnL distribution](results/figures/pnl_distribution.png)
 
@@ -195,9 +197,12 @@ test asserting monotonicity is scoped to the frozen defaults for that reason.
    is the most interesting result here mechanically, because it says which of the policy's two
    levers is doing the work. Taking σ from 0.5x to 4x the default, AS widened its average
    spread by only 22.19%. Over that same range its PnL standard deviation went from 7.21 to
-   11.41 while the fixed baseline went from 7.86 to 46.20. A 22% wider spread cannot account
-   for a gap that size. The reservation-price shift scales with σ², so as volatility rises the
-   skew pulls inventory back toward zero much harder, and that is what contains the risk.
+   11.41 while the fixed baseline went from 7.86 to 46.20. The tell is in the inventory rather
+   than the PnL: AS's worst inventory fell from 27 to 10 as volatility rose, while the
+   baseline sat flat at 30 throughout, so the risk went up and the worst case got smaller. A
+   22% wider spread cannot account for that. The reservation-price shift scales with σ², so as
+   volatility rises the skew pulls inventory back toward zero much harder, and that is what
+   contains the risk.
 
 3. **Adverse selection ate 5.36% of gross spread revenue at the frozen defaults, rising to
    69.96% under fully informed flow.** At `phi_informed = 0.15` AS captured 55.79 in spread and
@@ -206,8 +211,11 @@ test asserting monotonicity is scoped to the frozen defaults for that reason.
 
 4. **A 2x error in the assumed fill-intensity parameter κ cost 19.77% of Sharpe.** Feeding the
    strategy a κ estimate twice the true value dropped Sharpe from 6.08 to 4.88 and mean PnL
-   from 52.82 to 38.89. Since κ has to be estimated from data in any real deployment, this is
-   the practical cost of getting that estimate wrong.
+   from 52.82 to 38.89. The error is asymmetric: underestimating κ cost 24.35% of Sharpe
+   against 19.77% for overestimating it, with mean fill count collapsing to 33.14, because a
+   strategy that thinks fills decay slowly quotes too wide to trade. If you have to be wrong
+   about κ, be wrong on the high side. Since κ has to be estimated from data in any real
+   deployment, this is the practical cost of getting that estimate wrong.
 
 ## 8. Reproducing
 
