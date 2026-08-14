@@ -52,26 +52,24 @@ spread_total = γ·σ²·(T - t)  +  (2/γ)·ln(1 + γ/κ)
 ```
 
 The first term is the inventory risk term: widen when volatility is high and the session is
-long, because there is more time and more room for inventory to move against you. The second
-is the microstructure term, which depends only on `κ`, the rate at which fill probability
-decays with distance from the mid. It does not depend on inventory or on time. Quotes go
-symmetrically around `r_t`, which makes them asymmetric around the mid, and that asymmetry is
-the whole mechanism.
+long, because there is more time for inventory to move against you. The second is the
+microstructure term, which depends only on `κ`, the rate at which fill probability decays with
+distance from the mid. Quotes go symmetrically around `r_t`, which makes them asymmetric
+around the mid, and that asymmetry is the whole mechanism.
 
 ## 4. Simulator
 
 Arrivals are Poisson with intensity decaying exponentially in distance from the mid,
 `λ(δ) = A·exp(-κ·δ)`, drawn independently on each side each step. Distances are measured from
 the mid, not from the reservation price. A counterparty decides whether your quote is good
-relative to the actual market; they have no idea where your inventory sits and no reason to
-care.
+relative to the actual market; they have no idea where your inventory sits.
 
 Informed flow is explicit. With probability `phi_informed` an arrival is informed, and an
 informed arrival only executes if it is on the side that turns out to be right over the next
-`informed_horizon` steps. That requires looking ahead at the pre-generated path. The lookahead
-is confined entirely to the counterparty model. The strategy only ever sees a
-`MarketObservation` holding `t`, `S_t`, `q_t` and its own fill history, and there is a test
-that asserts structurally that no future prices are reachable from it.
+`informed_horizon` steps. That requires looking ahead at the pre-generated path, and the
+lookahead is confined entirely to the counterparty model. The strategy only ever sees `t`,
+`S_t`, `q_t` and its own fill history, and there is a test asserting that no future prices are
+reachable from it.
 
 PnL decomposes exactly:
 
@@ -80,22 +78,21 @@ PnL_total = Σ_fills (mid_at_fill - execution_price)·signed_size   (A) spread c
           + Σ_steps  q_i·(S_{i+1} - S_i)                          (B) inventory PnL
 ```
 
-This identity is checked to within 1e-9 on every path of every configuration in every sweep,
-about 150,000 episodes, as a hard assert that runs before any number gets written. Term (B)
-splits further into adverse selection (signed size times the mid move over the attribution
-horizon) plus a residual, which is reported rather than hidden. At the frozen defaults the
-residual is +0.0162 against 55.79 of spread capture, so the horizon is not mis-set.
+This identity is checked to within 1e-9 on every path of every configuration, as a hard
+assert that runs before any number gets written. Term (B) splits further into adverse
+selection (signed size times the mid move over the attribution horizon) plus a residual, which
+is reported rather than hidden.
 
 What is not realistic is in section 6. The big one is that quotes are recentred on the mid
 every single step, with no latency and no queue.
 
 ## 5. Results
 
-Everything below uses 2000 Monte Carlo paths per configuration, with the same base seed
-across every parameter value so comparisons are paired rather than polluted by seed noise.
-Sharpe here means mean terminal PnL divided by the standard deviation of terminal PnL across
-paths, not annualised, since each path is one independent session rather than a point on a
-time series.
+Everything below uses 2000 Monte Carlo paths per configuration, with the same base seed across
+every parameter value so comparisons are paired rather than polluted by seed noise. Sharpe
+here means mean terminal PnL divided by the standard deviation of terminal PnL across paths,
+not annualised, since each path is one independent session rather than a point on a time
+series.
 
 ### Headline comparison (`results/tables/headline_comparison.csv`)
 
@@ -109,14 +106,13 @@ time series.
 
 ![inventory paths](results/figures/inventory_paths.png)
 
-Baseline inventory wanders freely out to 30 units while AS inventory keeps getting pulled
-back toward zero, with mean |q| of 2.76 against 4.41.
+Baseline inventory wanders freely out to 30 units while AS inventory keeps getting pulled back
+toward zero, with mean |q| of 2.76 against 4.41.
 
 ![efficient frontier](results/figures/efficient_frontier.png)
 
-Across the swept γ range, more risk aversion buys a big drop in PnL standard deviation (12.22
-to 6.17) for almost nothing in mean PnL (52.53 to 51.17), so Sharpe climbs all the way to
-8.29 at γ = 0.1 and never turns inside the plotted range.
+More risk aversion buys a large drop in PnL standard deviation for almost nothing in mean PnL,
+so Sharpe climbs all the way to 8.29 at γ = 0.1 and never turns inside the plotted range.
 
 ![PnL distribution](results/figures/pnl_distribution.png)
 
@@ -130,18 +126,16 @@ never meet: at `phi_informed = 1.0` adverse selection is 69.96% of spread captur
 
 ## 6. Walk-backs and limitations
 
-**There is no endogenous adverse selection in this simulator.** All of the adverse selection
-measured here comes from the explicit informed-flow mechanism. The reason is structural:
-quotes are recomputed and reposted every step, so there is never a stale resting quote sitting
-there to be picked off. The argument is straightforward. The fill indicator at step `i`
-depends only on the path up to `i` and on independent uniform draws at `i`, while the forward
-move is a sum of strictly later increments of a driftless walk. The two are independent, so
-the expectation of `signed_size × forward_move` is exactly zero. That is what the measurements
-show: with `phi_informed = 0`, pooling about 22,000 fills per side, the mean forward mid move
-was +0.0022 after buys and -0.0027 after sells, both with standard error 0.0041, and the sign
-of the 500-path mean came out positive in 4 of 8 base seeds. Adding quote latency, so a posted
-quote persists for more than one step before it can be replaced, is the single most valuable
-extension to this model, because it is what would make pick-off adverse selection real.
+**There is no endogenous adverse selection in this simulator.** All of it comes from the
+explicit informed-flow mechanism. The reason is structural: quotes are recomputed and reposted
+every step, so there is never a stale resting quote sitting there to be picked off. Whether a
+fill happens depends only on the past, while the price move after it is independent of that,
+so in expectation the two cannot correlate. The measurements agree: with `phi_informed = 0`
+the mean forward mid move was +0.0022 after buys and -0.0027 after sells, both with standard
+error 0.0041, and the sign flipped depending on which base seed I used (positive in 4 of 8).
+Adding quote latency, so a posted quote persists for more than one step before it can be
+replaced, is the single most valuable extension to this model, because it is what would make
+pick-off adverse selection real.
 
 **There is no informed-flow crossover, and that expectation was not met.** The plan was to
 find the `phi_informed` threshold past which adverse selection overwhelms spread capture and
@@ -149,38 +143,31 @@ market making stops being profitable. No such threshold exists in the admissible
 `phi_informed = 1.0`, where every single arrival is informed, adverse selection reached 69.96%
 of spread capture and went no further. The reason is that an informed arrival trades the same
 size at the same rate as an uninformed one, so its edge per trade is capped by the mid move
-over `informed_horizon` and cannot be larger than the spread collected on that trade. Under
-this fill model the business degrades badly (mean PnL drops from 60.37 to 9.23, down 84.7%)
-but never crosses into structural unprofitability from adverse selection alone. I did not fit
-a curve and did not extrapolate past 1.0.
+over `informed_horizon` and cannot be larger than the spread collected on that trade. The
+business degrades badly (mean PnL drops from 60.37 to 9.23) but never crosses into structural
+unprofitability from adverse selection alone. I did not fit a curve or extrapolate past 1.0.
 
 **The Sharpe-maximising γ sits at the edge of the swept range, not at an interior peak.**
 Sharpe rose monotonically across the whole sweep to 8.29 at γ = 0.1, the largest value
-plotted. The turn was not observed inside the plotted range. It does happen above it, in a
-region left off the published figure because those points are degenerate rather than just
-low-Sharpe: at γ = 5.0 mean fill count collapses to 12.76 and 1921 of 2000 paths fall below 20
-fills, with a minimum of 2 fills in a 200-step episode. A Sharpe computed off 2 trades is not
-a market making result. Those points are in `results/tables/gamma_excluded_diagnostic.csv` and
-deliberately not on the frontier plot.
+plotted, so the turn was not observed inside that range. It does happen above it, but those
+points are degenerate rather than just low-Sharpe: at γ = 5.0 the spread is so wide that 1921
+of 2000 paths get fewer than 20 fills, with a minimum of 2 fills in a 200-step episode. A
+Sharpe computed off 2 trades is not a market making result, so those points are kept in
+`results/tables/gamma_excluded_diagnostic.csv` and deliberately off the frontier plot.
 
 **A sentinel value leaked into a published quantity.** The two inventory-limit strategies pull
-a side by quoting it 1e4 away from the mid. That sentinel was being recorded as a real quoted
-spread, so the average quoted spread on one path came out as 751.32 instead of 1.3690, and the
-forced-liquidation cost derived from it was two orders of magnitude too big: a
-forced-liquidation PnL of -707.25 against a mark-to-market PnL of +44.07 on a terminal
-inventory of 2 units. A range check caught it before it reached any published number. It is
-fixed at source by recording withdrawn steps as NaN, and there is now a regression test
-asserting no included spread exceeds 10 and the mean sits within 10% of the configured width.
-I checked the test actually works by reverting the fix and confirming it fails
-(`assert 10000.69 < 10.0`).
+a side by quoting it 1e4 away from the mid, and that sentinel was briefly being recorded as a
+real quoted spread, which made one path's average spread come out as 751.32 instead of 1.3690
+and blew up the forced-liquidation cost derived from it. A range check caught it before it
+reached any published number. It is fixed at source, and there is now a regression test that I
+verified by reverting the fix and confirming it fails.
 
 **Simulated flow is not real flow.** Exponential arrival intensity in quote distance is a
 convenient analytical assumption, not an empirical fact about any real market.
 
 **There is no queue position modelling.** Real fills depend on where you sit in the queue at
-your price level, how much size is ahead of you, and how cancellations move around you. None
-of that is here. If your price is good you fill with a probability that depends only on
-distance.
+your price level and how much size is ahead of you. None of that is here. If your price is
+good you fill with a probability that depends only on distance.
 
 **The informed trader model is a caricature.** Real informed flow is noisy, partially
 informed, and informed over varying horizons. Here an informed trader is perfectly informed
@@ -191,11 +178,9 @@ that runs continuously. The `(T - t)` factor means the policy deliberately stops
 inventory as the session ends, which is right for the model and wrong for a desk that reopens
 tomorrow holding the same book.
 
-**Spread monotonicity in γ holds at these parameters but is not a general property.** The
-inventory term rises with γ while the microstructure term `(2/γ)ln(1 + γ/κ)` falls with it,
-and which one dominates depends on `σ`, `T` and `κ`. At the frozen defaults evaluated at
-`t = 0` the inventory term wins across the whole sweep; near the horizon it does not. The test
-asserting monotonicity is scoped to the frozen defaults for that reason.
+**Spread monotonicity in γ holds at these parameters but is not general.** The two terms of
+the spread move opposite ways in γ, so which one dominates depends on `σ`, `T` and `κ`. The
+test asserting monotonicity is scoped to the frozen defaults for that reason.
 
 ## 7. Findings
 
@@ -209,25 +194,20 @@ asserting monotonicity is scoped to the frozen defaults for that reason.
 2. **Under volatility stress the protection comes from skewing, not from quoting wider.** This
    is the most interesting result here mechanically, because it says which of the policy's two
    levers is doing the work. Taking σ from 0.5x to 4x the default, AS widened its average
-   spread only slightly: 1.3439 at 0.5x, which is actually narrower than the baseline, up to
-   1.6605 at 4x, a rise of 22.19%. Over that same range its PnL standard deviation went from
-   7.21 to 11.41 while the fixed baseline went from 7.86 to 46.20, a 4.05x gap at 4x σ. AS's
-   max |q| actually fell as volatility rose, 27 down to 10, while the baseline sat flat at 30
-   throughout. A 22% wider spread cannot account for a 4x difference in outcome variance. The
-   reservation-price shift scales with σ², so as volatility rises the skew yanks inventory
-   back toward zero much harder. That, not width, is what contains the risk.
+   spread by only 22.19%. Over that same range its PnL standard deviation went from 7.21 to
+   11.41 while the fixed baseline went from 7.86 to 46.20. A 22% wider spread cannot account
+   for a gap that size. The reservation-price shift scales with σ², so as volatility rises the
+   skew pulls inventory back toward zero much harder, and that is what contains the risk.
 
 3. **Adverse selection ate 5.36% of gross spread revenue at the frozen defaults, rising to
-   69.96% under fully informed flow.** At `phi_informed = 0.15` AS captured 55.79 in spread
-   and gave up 2.99 to adverse selection. Pushing informed flow to 1.0 took that to 21.01
-   against 30.02 of spread capture and cut mean PnL from 60.37 to 9.23.
+   69.96% under fully informed flow.** At `phi_informed = 0.15` AS captured 55.79 in spread and
+   gave up 2.99 to adverse selection. Pushing informed flow to 1.0 cut mean PnL from 60.37 to
+   9.23.
 
 4. **A 2x error in the assumed fill-intensity parameter κ cost 19.77% of Sharpe.** Feeding the
    strategy a κ estimate twice the true value dropped Sharpe from 6.08 to 4.88 and mean PnL
-   from 52.82 to 38.89. Underestimating hurts more: a 0.5x error cost 24.35% of Sharpe (6.08
-   to 4.60) and pushed mean fill count down to 33.14, because a strategy that thinks fills
-   decay slowly quotes too wide for the true intensity. Since κ has to be estimated from data
-   in any real deployment, this is the practical cost of getting that estimate wrong.
+   from 52.82 to 38.89. Since κ has to be estimated from data in any real deployment, this is
+   the practical cost of getting that estimate wrong.
 
 ## 8. Reproducing
 
@@ -247,10 +227,6 @@ from.
 I checked this rather than assuming it. I moved `results/` out of the repository, ran the
 three scripts end to end from a different working directory, and diffed every regenerated CSV
 against the original. All seven pre-existing tables came back byte-identical and all six
-figures regenerated. Total runtime was 206 seconds on one core, with `run_sweeps.py` alone
-taking about 180 of that, covering roughly 150,000 simulated episodes.
-
-The exercise turned up two real bugs. `make_figures.py` was writing to a
-working-directory-relative path, and neither it nor `run_baseline.py` created
-`results/figures/` when it was missing, so both would have failed on a clean checkout. Both
-now resolve paths from the repository root and create their output directories.
+figures regenerated, in 206 seconds on one core. The exercise turned up two real bugs: one
+script wrote to a working-directory-relative path, and neither it nor another created
+`results/figures/` when it was missing, so both would have failed on a clean checkout.
